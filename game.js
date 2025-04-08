@@ -3,11 +3,16 @@ const ctx = canvas.getContext('2d');
 let tileSize = 20;
 let playerColor = "green";
 let shootTime = 30;
+let updateTick = 0;
+let velX = -10;
 
 //images
 let ship = new Image();
 ship.src = "ship.png";
+let alienSprite = new Image();
+alienSprite.src = "alien.png";
 
+//audio
 let shootAlert = new Audio();
 shootAlert.controls = true;
 shootAlert.volume = 0.1;
@@ -18,6 +23,7 @@ const fps = 60;
 canvas.width = 500;
 canvas.height = 500;
 
+//classes
 class Player{
     constructor(){
         this.pos = {
@@ -49,7 +55,7 @@ class Player{
     }
 
     draw(){
-        ctx.drawImage(ship, this.pos.x, this.pos.y, 50, 40);
+        ctx.drawImage(ship, this.pos.x, this.pos.y, 50, 30);
     }
 
     render(){
@@ -73,7 +79,7 @@ class Bullet{
     }
 
     movement(){
-        this.y += -5;
+        this.y += -10;
     }
 
     render(){
@@ -92,12 +98,58 @@ class Shield{
     }
 }
 
-class Enemy{
+class Alien{
+    constructor(x, y){
+        this.x = x;
+        this.y = y;
+        this.vel = {
+            x: -10,
+            y: 0
+        }
+        this.width = 40;
+        this.height = 40;
+    }
+
+    draw(){
+        ctx.drawImage(alienSprite, this.x, this.y, this.width, this.height);
+    }
+}
+
+//game
+let player = new Player();
+let bullets = [];
+let enemies = [];
+
+function setLevel(){
+    if(enemies.length == 0){
+        let startX = 60;
+        let startY = 60;
+        for(let i = 0; i < 6; i++){
+            let enemy = new Alien(i * startX + 80, startY);
+            enemies.push(enemy)
+        }
+
+        for(let j = 0; j < 6; j++){
+            let enemy = new Alien(j * startX + 80, startY + 60);
+            enemies.push(enemy)
+        }
+        console.log(enemies)
+    }
+}
+
+function renderEnemy(enemy){
+    enemy.x += enemy.vel.x;
+
+    if(enemies[0].x == 10) enemy.vel.x = -enemy.vel.x
 
 }
 
-let player = new Player();
-let bullets = [];
+function bulletCollision(obj1, obj2){
+    return obj1.x < obj2.x + obj2.width &&
+    obj1.x + obj1.width > obj2.x &&
+    obj1.y < obj2.y + obj2.height &&
+    obj1.y + obj1.height > obj2.y
+}
 
 function main(){
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -110,9 +162,43 @@ function main(){
             i--;
         }
     })
+
+    enemies.forEach((enemy, i) => {
+        if(i >= 0){
+            enemy.draw();
+            if(updateTick == 60){
+                renderEnemy(enemy);
+            }
+        }
+    })
+
+    if(key[' '] && shootTime >= 30){
+        let bullet = new Bullet(player.pos.x + (50/2) - (2 / 2), player.pos.y - 10);
+        bullets.push(bullet);
+        shootTime = 0;
+        shootAlert.play();
+    }
+
+    if(updateTick == 60){
+        updateTick = 0;
+    }
+
+    bullets.forEach((bullet, i) => {
+        enemies.forEach((enemy, j) => {
+            if(bulletCollision(bullet, enemy)) {
+                bullets.splice(i,1);
+                i--;
+
+                enemies.splice(j,1);
+                j--;
+
+                console.log(enemies)
+            }
+        })
+    })
+
     shootTime++
-    console.log("tick")
-    console.log(bullets.length);
+    setLevel();
 }
 
 let key = [];
@@ -126,18 +212,11 @@ function keyHandler(event){
     if(key['d']) player.vel.x = 3;
 
     if(!key['a'] && !key['d']) player.vel.x = 0;
-
-    //shooting
-    if(key[' '] && shootTime >= 30){
-        let bullet = new Bullet(player.pos.x + (50/2) - (2 / 2), player.pos.y);
-        bullets.push(bullet);
-        shootTime = 0;
-        shootAlert.play();
-    }
 }
 
 setInterval(() => {
     main();
+    updateTick++;
 }, 1000/fps)
 
 document.addEventListener("keydown", keyHandler);
