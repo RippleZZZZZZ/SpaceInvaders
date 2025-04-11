@@ -4,7 +4,15 @@ let tileSize = 20;
 let playerColor = "green";
 let shootTime = 30;
 let updateTick = 0;
-let velX = -10;
+let isPlayerBullet = false;
+let randomEnemy = 0;
+let enemyCooldown = 0;
+
+let alive = true;
+let score = 0;
+let level = 0;
+let lives = 3;
+let highScore = 0;
 
 //images
 let ship = new Image();
@@ -72,14 +80,14 @@ class Bullet{
         this.height = 10;
     }
 
+    movement(){
+        this.y += -15;
+    }
+    
     draw(){
         
-        ctx.fillStyle = "yellow"
+        ctx.fillStyle = "white"
         ctx.fillRect(this.x, this.y, this.width, this.height);
-    }
-
-    movement(){
-        this.y += -10;
     }
 
     render(){
@@ -90,11 +98,17 @@ class Bullet{
 }
 
 class Shield{
-    constructor(){
+    constructor(x, y){
         this.x = x;
         this.y = y;
-        this.width = tileSize * 2;
+        this.width = (tileSize * 3) + 10;
         this.height = tileSize;
+        this.health = 100;
+    }
+
+    draw(){
+        ctx.fillStyle = "green"
+        ctx.fillRect(this.x, this.y, this.width, this.height);
     }
 }
 
@@ -103,8 +117,8 @@ class Alien{
         this.x = x;
         this.y = y;
         this.vel = {
-            x: -10,
-            y: 0
+            x: -20,
+            y: 20
         }
         this.width = 40;
         this.height = 40;
@@ -115,36 +129,67 @@ class Alien{
     }
 }
 
+class Projectile{
+    constructor(x, y){
+        this.x = x;
+        this.y = y;
+        this.width = 1;
+        this.height = 10;
+        this.color = "lightgreen";
+    }
+
+    movement(){
+        this.y += 5;
+    }
+
+    draw(){
+        ctx.fillStyle = this.color;
+        ctx.fillRect(this.x, this.y, this.width, this.height);
+    }
+
+    render(){
+        this.movement();
+        this.draw();
+    }
+}
+
 //game
 let player = new Player();
 let bullets = [];
 let enemies = [];
+let shields = [];
+let projectiles = [];
 
 function setLevel(){
-    if(enemies.length == 0){
-        let startX = 60;
-        let startY = 60;
-        for(let i = 0; i < 6; i++){
-            let enemy = new Alien(i * startX + 80, startY);
-            enemies.push(enemy)
-        }
+    level++;
+    player.pos.x = (canvas.height - 50) / 2;
+    let startX = 60;
+    let startY = 60;
 
-        for(let j = 0; j < 6; j++){
-            let enemy = new Alien(j * startX + 80, startY + 60);
-            enemies.push(enemy)
-        }
-        console.log(enemies)
+    for(let j = 0; j < 3; j++){
+        let shield = new Shield((j * startX) * 3 + 35, 400)
+        shields.push(shield)
     }
+
+    for(let i = 0; i < 6; i++){
+        let enemy = new Alien(i * startX + 80, startY);
+        enemies.push(enemy)
+    }
+
+    for(let i = 0; i < 6; i++){
+        let enemy = new Alien(i * startX + 80, startY + 60);
+        enemies.push(enemy)
+    }
+
+    for(let i = 0; i < 6; i++){
+        let enemy = new Alien(i * startX + 80, startY + 120);
+        enemies.push(enemy)
+    }
+
+    console.log(enemies)
 }
 
-function renderEnemy(enemy){
-    enemy.x += enemy.vel.x;
-
-    if(enemies[0].x == 10) enemy.vel.x = -enemy.vel.x
-
-}
-
-function bulletCollision(obj1, obj2){
+function collision(obj1, obj2){
     return obj1.x < obj2.x + obj2.width &&
     obj1.x + obj1.width > obj2.x &&
     obj1.y < obj2.y + obj2.height &&
@@ -153,22 +198,117 @@ function bulletCollision(obj1, obj2){
 
 function main(){
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    ctx.fillStyle = "white";
+    ctx.font = "20px Tiny5";
+    ctx.fillText('Level ' + level, 10, 40)
+
+    ctx.font = "20px Tiny5"
+    ctx.fillText('Score: ' + score, 10, 20);
+
     player.render();
     bullets.forEach((bullet, i) => {
         bullet.render();
-
         if(bullet.y <= 0 - 10){
             bullets.splice(i,1)
             i--;
         }
     })
 
-    enemies.forEach((enemy, i) => {
-        if(i >= 0){
-            enemy.draw();
-            if(updateTick == 60){
-                renderEnemy(enemy);
+    if(score > highScore) highScore = score;
+
+    if(enemyCooldown == 3){
+        randomEnemy = Math.floor(Math.random() * (enemies.length - 1));
+        let projectile = new Projectile(enemies[randomEnemy].x + (enemies[randomEnemy].width / 2), enemies[randomEnemy].y)
+        projectiles.push(projectile);
+
+        enemyCooldown = 0;
+    }
+
+    projectiles.forEach((projectile , i) => {
+        projectile.render();
+
+        if(collision(projectile, player)){
+            console.log("hit");
+        }
+    })
+
+    if(updateTick == 60){
+        enemyCooldown++;
+        let reverse = false;
+        if (enemies.length > 0){
+            if(enemies[0].x <= 20 || enemies[enemies.length - 1].x + enemies[0].width >= 480){
+                reverse = true;
             }
+        }
+
+        enemies.forEach(enemy => {
+            if(reverse){
+                enemy.vel.x = -enemy.vel.x;
+                enemy.y += enemy.vel.y;
+            }
+    
+            enemy.x += enemy.vel.x;
+        })
+
+        console.log(randomEnemy);
+        console.log(enemyCooldown);
+    }
+
+    shields.forEach(shield => shield.draw());
+    enemies.forEach(enemy => enemy.draw());
+
+    if(updateTick == 60){
+        updateTick = 0;
+    }
+
+    bullets.forEach((bullet, i) => {
+        enemies.forEach((enemy, j) => {
+            if(collision(bullet, enemy)) {
+                bullets.splice(i,1);
+                i--;
+
+                enemies.splice(j,1);
+                j--;
+
+                score += 20;
+
+                console.log(highScore)
+            }
+        })
+    })
+
+    if(enemies.length == 0){
+        setLevel();
+    }
+
+    bullets.forEach((bullet, i) => {
+        shields.forEach((shield, j) => {
+            if(collision(bullet, shield)) {
+                bullets.splice(i, 1);
+                i--;
+
+                shield.health -= 10;
+            }
+        })
+    })
+
+    projectiles.forEach((projectile, i) => {
+        shields.forEach((shield, j) => {
+            if(collision(projectile, shield)){
+                projectiles.splice(i, 1);
+            i--;
+
+            shield.health -= 10;
+            console.log(shield.health);
+            }
+        })
+    })
+
+    shields.forEach((shield, i) => {
+        if(shield.health == 0){
+            shields.splice(i, 1);
+            i--;
         }
     })
 
@@ -179,26 +319,15 @@ function main(){
         shootAlert.play();
     }
 
-    if(updateTick == 60){
-        updateTick = 0;
-    }
-
-    bullets.forEach((bullet, i) => {
-        enemies.forEach((enemy, j) => {
-            if(bulletCollision(bullet, enemy)) {
-                bullets.splice(i,1);
-                i--;
-
-                enemies.splice(j,1);
-                j--;
-
-                console.log(enemies)
-            }
-        })
-    })
-
     shootTime++
-    setLevel();
+}
+
+function gameOver(){
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    ctx.fillStyle = "darkgreen";
+    ctx.font = "40px Tiny5";
+    ctx.fillText('Game Over', (canvas.width / 2) - 80, canvas.height / 2)
 }
 
 let key = [];
@@ -215,8 +344,13 @@ function keyHandler(event){
 }
 
 setInterval(() => {
-    main();
-    updateTick++;
+    if(alive){
+        main();
+        updateTick++;
+    }
+    else{
+        gameOver();
+    }
 }, 1000/fps)
 
 document.addEventListener("keydown", keyHandler);
