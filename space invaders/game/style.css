@@ -1,0 +1,24 @@
+body{
+    background-color: black;
+    text-align: center;
+}
+
+#title{
+    color: darkgreen;
+    font-family: "Tiny5";
+    font-size: 75px;
+}
+
+#author{
+    color: darkgreen;
+    font-family: "Tiny5";
+    position: relative;
+    bottom: 50px;
+}
+
+#canvas{
+    border: 2px solid green;
+    background-color: black;
+    position: relative;
+    bottom: 50px;
+}
