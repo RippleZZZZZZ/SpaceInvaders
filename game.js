@@ -5,13 +5,14 @@ let playerColor = "green";
 let shootTime = 30;
 let updateTick = 0;
 let isPlayerBullet = false;
-let randomEnemy = 0;
 let enemyCooldown = 0;
+let setTick = 60;
+let wallTimer = 0;
 
 let alive = true;
 let score = 0;
 let level = 0;
-let lives = 3;
+let lives = [];
 let highScore = 0;
 
 //images
@@ -33,37 +34,35 @@ canvas.height = 500;
 
 //classes
 class Player{
-    constructor(){
-        this.pos = {
-            x: (canvas.height - 50) / 2,
-            y: 450
-        }
+    constructor(x, y){
+        this.x = x;
+        this.y = 450;
         this.vel = {
             x: 0,
             y: 0
         }
 
-        this.width = tileSize;
-        this.height = tileSize;
+        this.width = 50;
+        this.height = 30;
     }
 
     movement(){
-        this.pos.x += this.vel.x;
-        this.pos.y += this.vel.y;
+        this.x += this.vel.x;
+        this.y += this.vel.y;
 
-        if(this.pos.x < 0){
+        if(this.x < 0){
             this.vel.x = 0;
-            this.pos.x += 3;
+            this.x += 3;
         }
 
-        if(this.pos.x > (canvas.width - 50)){
+        if(this.x > (canvas.width - 50)){
             this.vel.x = 0;
-            this.pos.x -= 3;
+            this.x -= 3;
         }
     }
 
     draw(){
-        ctx.drawImage(ship, this.pos.x, this.pos.y, 50, 30);
+        ctx.drawImage(ship, this.x, this.y, this.width, this.height);
     }
 
     render(){
@@ -103,7 +102,7 @@ class Shield{
         this.y = y;
         this.width = (tileSize * 3) + 10;
         this.height = tileSize;
-        this.health = 100;
+        this.health = 50;
     }
 
     draw(){
@@ -118,7 +117,7 @@ class Alien{
         this.y = y;
         this.vel = {
             x: -20,
-            y: 20
+            y: 10
         }
         this.width = 40;
         this.height = 40;
@@ -133,7 +132,7 @@ class Projectile{
     constructor(x, y){
         this.x = x;
         this.y = y;
-        this.width = 1;
+        this.width = 2;
         this.height = 10;
         this.color = "lightgreen";
     }
@@ -153,16 +152,45 @@ class Projectile{
     }
 }
 
+class liveIcon{
+    constructor(x, y){
+        this.x = x;
+        this.y = y;
+        this.width = 30;
+        this.height = 20;
+    }
+
+    draw(){
+        ctx.drawImage(ship, this.x, this.y, this.width, this.height);
+    }
+}
+
 //game
 let player = new Player();
 let bullets = [];
-let enemies = [];
+let rowOne = [];
+let rowTwo = [];
+let rowThree = [];
 let shields = [];
 let projectiles = [];
 
+//starting lives
+for(let l = 0; l < 3; l++){
+    let live = new liveIcon((l * 35) + 5, 500 - 25);
+    lives.push(live)
+}
+
+//level
 function setLevel(){
-    level++;
-    player.pos.x = (canvas.height - 50) / 2;
+    setTick = 60;
+    wallTimer = 0;
+
+    rowOne = [];
+    rowTwo = [];
+    rowThree = [];
+    shields = [];
+
+    player.x = (canvas.height - 50) / 2;
     let startX = 60;
     let startY = 60;
 
@@ -173,22 +201,26 @@ function setLevel(){
 
     for(let i = 0; i < 6; i++){
         let enemy = new Alien(i * startX + 80, startY);
-        enemies.push(enemy)
+        rowOne.push(enemy)
     }
 
     for(let i = 0; i < 6; i++){
         let enemy = new Alien(i * startX + 80, startY + 60);
-        enemies.push(enemy)
+        rowTwo.push(enemy)
     }
 
     for(let i = 0; i < 6; i++){
         let enemy = new Alien(i * startX + 80, startY + 120);
-        enemies.push(enemy)
+        rowThree.push(enemy)
     }
 
-    console.log(enemies)
+    console.log(rowOne);
+    console.log(rowTwo);
+    console.log(rowThree);
+    console.log(lives);
 }
 
+//collision formula
 function collision(obj1, obj2){
     return obj1.x < obj2.x + obj2.width &&
     obj1.x + obj1.width > obj2.x &&
@@ -196,8 +228,10 @@ function collision(obj1, obj2){
     obj1.y + obj1.height > obj2.y
 }
 
+//main running function
 function main(){
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    let rightLife = lives.length - 1;
 
     ctx.fillStyle = "white";
     ctx.font = "20px Tiny5";
@@ -207,6 +241,7 @@ function main(){
     ctx.fillText('Score: ' + score, 10, 20);
 
     player.render();
+
     bullets.forEach((bullet, i) => {
         bullet.render();
         if(bullet.y <= 0 - 10){
@@ -217,32 +252,96 @@ function main(){
 
     if(score > highScore) highScore = score;
 
+    //draw life icons
+    lives.forEach(live => {
+        live.draw();
+    })
+
+    //is alive?
+    if(lives.length == 0){
+        alive = false;
+    }
+
+    //player, enemy projectile collision
+
+    //enemy shooting
     if(enemyCooldown == 3){
-        randomEnemy = Math.floor(Math.random() * (enemies.length - 1));
-        let projectile = new Projectile(enemies[randomEnemy].x + (enemies[randomEnemy].width / 2), enemies[randomEnemy].y)
-        projectiles.push(projectile);
+         let randomRow = Math.floor(Math.random() * 3);
+         let randomEnemy = 0;
+
+         if(randomRow == 0 && rowOne.length > 0){
+             randomEnemy = Math.floor(Math.random() * (rowOne.length - 1));
+             let projectile = new Projectile(rowOne[randomEnemy].x + (rowOne[randomEnemy].width / 2), rowOne[randomEnemy].y)
+             projectiles.push(projectile);
+         }
+
+         if(randomRow == 1 && rowTwo.length > 0){
+             randomEnemy = Math.floor(Math.random() * (rowTwo.length - 1));
+             let projectile = new Projectile(rowTwo[randomEnemy].x + (rowTwo[randomEnemy].width / 2), rowTwo[randomEnemy].y)
+             projectiles.push(projectile);
+         }
+
+         if(randomRow == 2 && rowThree.length > 0){
+             randomEnemy = Math.floor(Math.random() * (rowThree.length - 1));
+             let projectile = new Projectile(rowThree[randomEnemy].x + (rowThree[randomEnemy].width / 2), rowThree[randomEnemy].y)
+             projectiles.push(projectile);
+         }
 
         enemyCooldown = 0;
     }
 
-    projectiles.forEach((projectile , i) => {
+    projectiles.forEach((projectile, i) => {
         projectile.render();
 
         if(collision(projectile, player)){
-            console.log("hit");
+            projectiles.splice(i, 1);
+            i--
+            lives.splice(rightLife, 1)
+            setLevel();
+        }
+
+        if(projectile.y >= 500 + projectile.height){
+            projectiles.splice(i, 1);
+            i--;
         }
     })
 
-    if(updateTick == 60){
+    //update enemys
+    if(updateTick == setTick){
         enemyCooldown++;
         let reverse = false;
-        if (enemies.length > 0){
-            if(enemies[0].x <= 20 || enemies[enemies.length - 1].x + enemies[0].width >= 480){
+        wallTimer++;
+
+        //enemy wall detection
+        if (rowOne.length > 0){
+            if(rowOne[0].x <= 20 || rowOne[rowOne.length - 1].x + 40 >= 480){
                 reverse = true;
             }
         }
 
-        enemies.forEach(enemy => {
+        if (rowTwo.length > 0){
+            if(rowTwo[0].x <= 20 || rowTwo[rowTwo.length - 1].x + 40 >= 480){
+                reverse = true;
+            }
+        }
+
+        if (rowThree.length > 0){
+            if(rowThree[0].x <= 20 || rowThree[rowThree.length - 1].x + 40 >= 480){
+                reverse = true;
+            }
+        }
+
+        //speed up
+        if(wallTimer == 10){
+            setTick = 30;
+        }
+
+        if(wallTimer == 30){
+            setTick = 10;
+        }
+
+        //enemy movement
+        rowOne.forEach(enemy => {
             if(reverse){
                 enemy.vel.x = -enemy.vel.x;
                 enemy.y += enemy.vel.y;
@@ -251,37 +350,100 @@ function main(){
             enemy.x += enemy.vel.x;
         })
 
-        console.log(randomEnemy);
-        console.log(enemyCooldown);
+        rowTwo.forEach(enemy => {
+            if(reverse){
+                enemy.vel.x = -enemy.vel.x;
+                enemy.y += enemy.vel.y;
+            }
+    
+            enemy.x += enemy.vel.x;
+        })
+
+        rowThree.forEach(enemy => {
+            if(reverse){
+                enemy.vel.x = -enemy.vel.x;
+                enemy.y += enemy.vel.y;
+            }
+    
+            enemy.x += enemy.vel.x;
+        })
+
+        lives.forEach((live, i) => {
+            if(rowOne.length > 0){
+                if(rowOne[0].y >= 400){
+                    setLevel();
+                    lives.splice(rightLife, 1)
+                }
+            }
+
+            if(rowTwo.length > 0){
+                if(rowTwo[0].y >= 400){
+                    setLevel();
+                    lives.splice(rightLife, 1)
+                }
+            }
+
+            if(rowThree.length > 0){
+                if(rowThree[0].y >= 400){
+                    setLevel();
+                    lives.splice(rightLife, 1)
+                }
+            }
+        })
+
+        console.log(wallTimer)
     }
 
+    //drawing elements
     shields.forEach(shield => shield.draw());
-    enemies.forEach(enemy => enemy.draw());
+    rowOne.forEach(enemy => enemy.draw());
+    rowTwo.forEach(enemy => enemy.draw());
+    rowThree.forEach(enemy => enemy.draw());
 
-    if(updateTick == 60){
-        updateTick = 0;
-    }
-
+    //bullet, enemy collision
     bullets.forEach((bullet, i) => {
-        enemies.forEach((enemy, j) => {
+        rowOne.forEach((enemy, j) => {
             if(collision(bullet, enemy)) {
                 bullets.splice(i,1);
                 i--;
 
-                enemies.splice(j,1);
+                rowOne.splice(j,1);
                 j--;
 
                 score += 20;
-
-                console.log(highScore)
             }
         })
     })
 
-    if(enemies.length == 0){
-        setLevel();
-    }
+    bullets.forEach((bullet, i) => {
+        rowTwo.forEach((enemy, j) => {
+            if(collision(bullet, enemy)) {
+                bullets.splice(i,1);
+                i--;
 
+                rowTwo.splice(j,1);
+                j--;
+
+                score += 20;
+            }
+        })
+    })
+
+    bullets.forEach((bullet, i) => {
+        rowThree.forEach((enemy, j) => {
+            if(collision(bullet, enemy)) {
+                bullets.splice(i,1);
+                i--;
+
+                rowThree.splice(j,1);
+                j--;
+
+                score += 20;
+            }
+        })
+    })
+
+    //shield, player bullet collision
     bullets.forEach((bullet, i) => {
         shields.forEach((shield, j) => {
             if(collision(bullet, shield)) {
@@ -293,6 +455,7 @@ function main(){
         })
     })
 
+    //shield, enemy projectile collision
     projectiles.forEach((projectile, i) => {
         shields.forEach((shield, j) => {
             if(collision(projectile, shield)){
@@ -300,11 +463,11 @@ function main(){
             i--;
 
             shield.health -= 10;
-            console.log(shield.health);
             }
         })
     })
 
+    //shield health
     shields.forEach((shield, i) => {
         if(shield.health == 0){
             shields.splice(i, 1);
@@ -312,11 +475,23 @@ function main(){
         }
     })
 
+    //shooting
     if(key[' '] && shootTime >= 30){
-        let bullet = new Bullet(player.pos.x + (50/2) - (2 / 2), player.pos.y - 10);
+        let bullet = new Bullet(player.x + (50/2) - (2 / 2), player.y - 10);
         bullets.push(bullet);
         shootTime = 0;
         shootAlert.play();
+    }
+
+    //reset update tick
+    if(updateTick >= setTick){
+        updateTick = 0;
+    }
+
+    //level reset
+    if(rowOne.length == 0 && rowTwo == 0 && rowThree == 0){
+        setLevel();
+        level++;
     }
 
     shootTime++
@@ -327,7 +502,21 @@ function gameOver(){
 
     ctx.fillStyle = "darkgreen";
     ctx.font = "40px Tiny5";
-    ctx.fillText('Game Over', (canvas.width / 2) - 80, canvas.height / 2)
+    ctx.fillText('Game Over', (canvas.width / 2) - 85, canvas.height / 2)
+
+    ctx.font = "20px Tiny5";
+    ctx.fillText('Press R To Reset', (canvas.width / 2) - 70, (canvas.height / 2) + 20)
+
+    if(key['r']) {
+        for(let l = 0; l < 3; l++){
+            let live = new liveIcon((l * 35) + 5, 500 - 25);
+            lives.push(live)
+        }
+        alive = true;
+        setLevel();
+        score = 0;
+        level = 1;
+    }
 }
 
 let key = [];
